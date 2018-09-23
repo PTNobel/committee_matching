@@ -48,18 +48,21 @@ class Committee:
         field(default_factory=dict, repr=False)
     waiting_on: List[Member] = field(default_factory=list, repr=False)
 
+    def finish_building_committee(self):
+        self.sorted_members = sorted(
+                self.preferred_members.items(), key=lambda x: x[0])
+        return self
+
     def satisfied(self) -> bool:
         return self.open_spots == len(self.waiting_on)
 
     def propose_to_next_member(self):
         if self.satisfied():
             return
-        for _, member in sorted(
-                self.preferred_members.items(), key=lambda x: x[0]):
-            if self not in member.rejected:
+        for _, member in self.sorted_members:
+            if self not in member.rejected and self is not member.on_a_string:
                 if member.recieve_offer(self):
                     self.waiting_on.append(member)
-
                 return
 
     def be_cut_loose(self, member: Member):
@@ -92,9 +95,7 @@ def load_csv(file_name: str) -> \
             if type(comm_preference) == float and math.isnan(comm_preference):
                 comm_preference = float('inf')
             elif comm_preference in comm.preferred_members.keys():
-                print(comm.name, "repeated the number", comm_preference,
                       file=sys.stderr)
-                #breakpoint()
                 comm_preference += 0.1 * [
                     int(i)
                     for i in comm.preferred_members.keys()
@@ -110,7 +111,7 @@ def load_csv(file_name: str) -> \
                 if type(comm_preference) == str else comm_preference
             ] = member
 
-    return list(comms.values()), members
+    return list(v.finish_building_committee() for v in comms.values()), members
 
 
 def generate_committees() -> Dict[str, Committee]:
@@ -128,16 +129,18 @@ def generate_committees() -> Dict[str, Committee]:
 def main():
     committees, members = load_csv(sys.argv[1])
 
-    while any(not c.satisfied() for c in committees) or \
-            all(m.on_a_string is not None for m in members):
+    while any(not c.satisfied() for c in committees) and \
+            any(m.on_a_string is None for m in members):
         for committee in committees:
             committee.propose_to_next_member()
+    
+    for committee in committees:
+        print(committee.name)
+        print("----------------")
+        for member in committee.waiting_on:
+            print(member.name)
 
-    for member in members:
-        if member.on_a_string is not None:
-            print(member.name, "is on", member.on_a_string.name)
-        else:
-            print(member.name, "was not placed on a committee")
+        print("\n")
 
 
 if __name__ == '__main__':
