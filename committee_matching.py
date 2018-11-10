@@ -56,14 +56,17 @@ class Committee:
     def satisfied(self) -> bool:
         return self.open_spots == len(self.waiting_on)
 
-    def propose_to_next_member(self):
+    def propose_to_next_member(self) -> bool:
+        """Return value denotes whether there was a change in state"""
         if self.satisfied():
-            return
+            return False
         for _, member in self.sorted_members:
             if self not in member.rejected and self is not member.on_a_string:
                 if member.recieve_offer(self):
                     self.waiting_on.append(member)
-                return
+                return True
+
+        return False
 
     def be_cut_loose(self, member: Member):
         self.waiting_on.remove(member)
@@ -95,7 +98,6 @@ def load_csv(file_name: str) -> \
             if type(comm_preference) == float and math.isnan(comm_preference):
                 comm_preference = float('inf')
             elif comm_preference in comm.preferred_members.keys():
-                      file=sys.stderr)
                 comm_preference += 0.1 * [
                     int(i)
                     for i in comm.preferred_members.keys()
@@ -131,9 +133,14 @@ def main():
 
     while any(not c.satisfied() for c in committees) and \
             any(m.on_a_string is None for m in members):
+        state_changed = False
         for committee in committees:
-            committee.propose_to_next_member()
-    
+            print(committee.name, "is about to make an offer...")
+            state_changed = committee.propose_to_next_member() or state_changed
+
+        if not state_changed:
+            break
+
     for committee in committees:
         print(committee.name)
         print("----------------")
